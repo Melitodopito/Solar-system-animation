@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+  <html lang="en">
+
+    <head>
+      <meta charset="utf-8">
+      <title>Efolio B Henrique Melo</title>
+    </head>
+
+    <body>
+        <script type="module">
+            import * as THREE from 'https://unpkg.com/three@0.124.0/build/three.module.js';
+            import { OrbitControls } from 'https://unpkg.com/three@0.124.0/examples/jsm/controls/OrbitControls.js';
+            import { criarPlaneta, marcarOrbita,criarOrbitas,removerOrbitas, eliminarPlanetas, criarSistemaSolar } from './planetas.js';
+            import { criarSliders, criarToggleModo  } from './UI.js';
+            import { rotacaoPlanetaria, translacaoPlanetaria } from './animacao.js'
+            import { criarEstrelas } from './estrelas.js';
+            import { alterarTamanhoPlanetas } from './realismo.js';
+
+            //
+
+            let velocidade  = 1;
+            let estrelas = null;
+
+            const tamanhoSol = 10;
+            // proproçoes realistas de planetas
+            let tamanhosPlanetasRealista = {
+              mercurio: tamanhoSol * 0.04,
+              venus: tamanhoSol * 0.09,
+              terra: tamanhoSol * 0.1,
+              marte: tamanhoSol * 0.05,
+              jupiter: tamanhoSol * 1,
+              saturno: tamanhoSol * 0.8,
+              urano: tamanhoSol * 0.4,
+              neptuno: tamanhoSol * 0.35
+            };
+
+            let tamanhosPlanetas = {
+              mercurio: tamanhoSol * 0.25,
+              venus: tamanhoSol * 0.25,
+              terra: tamanhoSol * 0.25,
+              marte: tamanhoSol * 0.25,
+              jupiter: tamanhoSol * 0.5,
+              saturno: tamanhoSol * 1,
+              urano: tamanhoSol * 0.5,
+              neptuno: tamanhoSol * 0.25
+            };
+
+            let velocidadesPlanetasRealista = {
+              mercurio:0.01,
+              venus: 0.008,
+              terra: 0.007,
+              marte: 0.005,
+              jupiter: 0.002,
+              saturno: 0.001,
+              urano: 0.0005,
+              neptuno: 0.0003,
+            };
+
+            let velocidadesPlanetas = {
+              mercurio: 0.005,
+              venus: 0.007,
+              terra: 0.008,
+              marte: 0.01,
+              jupiter: 0.013,
+              saturno: 0.014,
+              urano: 0.015,
+              neptuno: 0.016,
+            };
+
+            let rotacoes = {
+              sol : 0.005,
+              mercurio: 0.004,
+              venus: 0.002,
+              terra: 0.02,
+              marte: 0.018,
+              jupiter: 0.04,
+              saturno: 0.038,
+              urano: 0.03,
+              neptuno: 0.032
+            };
+
+            let orbitasPlanetasRealista = {
+              mercurio: 15,
+              venus: 30,
+              terra: 40,
+              marte: 60,
+              jupiter: 200,
+              saturno: 300,
+              urano: 400,
+              neptuno: 500,
+            };
+
+            let orbitasPlanetas = {
+              mercurio: 15,
+              venus: 30,
+              terra: 50,
+              marte: 100,
+              jupiter: 150,
+              saturno: 200,
+              urano: 250,
+              neptuno: 300,
+            };
+
+            let texturasPlanetas = {
+              mercurio: './imagens/mercurio.jpg',
+              venus: './imagens/venus.jpg',
+              terra: './imagens/Terra.jpg',
+              marte: './imagens/marte.jpg',
+              jupiter: './imagens/jupiter.jpg',
+              saturno: './imagens/saturno.jpg',
+              urano: './imagens/urano.jpg',
+              neptuno: './imagens/neptuno.jpg',
+            };
+
+            let texturasAneis = {
+              saturno: './imagens/saturnoanel.png'
+            };
+
+            let velocidadeAtual = velocidadesPlanetasRealista;
+
+
+            // Criaçao de cena
+            const scene = new THREE.Scene();
+
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+            camera.position.set(-90, 140, 140);
+
+            // Controlos de Orbita
+            const orbit = new OrbitControls(camera,renderer.domElement);
+            orbit.update();
+
+            document.body.appendChild(renderer.domElement);
+
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.setAnimationLoop( animate );
+
+
+            // Criaçao de fundo
+            // Nota a imagem de fundo tem que ser completamente quadrada para funcionar com este metodo
+            const loaderTexturesFundo = new THREE.CubeTextureLoader();
+            scene.background = loaderTexturesFundo.load([
+            './imagens/fundo.jpg',
+            './imagens/fundo.jpg',
+            './imagens/fundo.jpg',
+            './imagens/fundo.jpg',
+            './imagens/fundo.jpg',
+            './imagens/fundo.jpg'
+            ]);
+
+            const textureLoader = new THREE.TextureLoader();
+
+            // faça-se luz!
+            const luzAmbiente = new THREE.AmbientLight(0x666666,3);
+            scene.add(luzAmbiente);
+            const pointLight = new THREE.PointLight(0xFFFFFF, 7, 300);
+            scene.add(pointLight);
+
+            // Criar estrelas
+            estrelas = [criarEstrelas(100, scene)];
+            //Criar o sol e adicionalo a cena
+            const solGeo = new THREE.SphereGeometry(tamanhoSol,30,30);
+            const solMat = new THREE.MeshStandardMaterial({
+                  map: textureLoader.load('./imagens/sol.png')
+            });
+            const sol = new THREE.Mesh(solGeo,solMat);
+            scene.add(sol);
+
+
+            // Criar Planetas iniciais e iniciar rotas
+            let planetas = criarSistemaSolar(tamanhosPlanetasRealista,texturasPlanetas,texturasAneis, orbitasPlanetasRealista, textureLoader, scene);
+            let orbitas = {};
+
+            // Criaçao de sliders
+            criarSliders({
+              onVelocidadeChange: (novaVelocidade) => {
+                velocidade = novaVelocidade;
+              },
+              onEstrelasChange: (novaQuantidade) => {
+                if (!estrelas) {
+                  // Criaçao original das estrelas
+                  estrelas = [criarEstrelas(novaQuantidade, scene)];
+                } else {
+                  // Remover estrelas excistentes
+                  const existingStars = scene.getObjectByName('estrelas');
+                  if (existingStars) {
+                    scene.remove(existingStars);
+                  }
+
+                  // Criar estrelas novas
+                  estrelas = [criarEstrelas(novaQuantidade, scene)];
+                }
+              },
+            });
+
+
+            // Atualiza o modo com base no estado do toggle
+            criarToggleModo((isRealista) => {
+
+              if(isRealista) {
+
+                // eliminar Planetas e remover as suas orbitas
+                eliminarPlanetas(planetas,scene);
+                removerOrbitas(orbitas, scene);
+                // Criar novos planetas e alterar a sua velocidade
+                planetas = criarSistemaSolar(tamanhosPlanetasRealista, texturasPlanetas, texturasAneis,orbitasPlanetasRealista,textureLoader, scene);
+                velocidadeAtual = velocidadesPlanetasRealista
+
+              } else {
+                eliminarPlanetas(planetas,scene);
+                // Criar novos planetas com orbitas  e alterar a sua velocidade
+                planetas = criarSistemaSolar(tamanhosPlanetas, texturasPlanetas, texturasAneis,orbitasPlanetas,textureLoader,scene);
+                orbitas = criarOrbitas(orbitasPlanetas, scene, marcarOrbita);
+                velocidadeAtual = velocidadesPlanetas;
+
+              }
+            });
+
+            function animate() {
+
+
+                // Rotaçoes
+                rotacaoPlanetaria(sol,planetas,rotacoes);
+
+                // Movimento a volta do sol
+                translacaoPlanetaria(planetas,velocidadeAtual,velocidade);
+
+                renderer.render( scene, camera );
+              }
+
+              // Ativar animaçao
+              renderer.setAnimationLoop(animate);
+
+              window.addEventListener('resize', function() {
+                camera.aspect = window.innerWidth/window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+              });
+            </script>
+
+          </body>
+          </html>
+
+          <!-- https://www.solarsystemscope.com/textures/ -->
